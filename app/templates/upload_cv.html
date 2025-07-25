@@ -1,0 +1,13 @@
+{% extends "layout.html" %}
+
+{% block content %}
+  <h2>Upload Your CV</h2>
+  <form method="POST" enctype="multipart/form-data">
+    <label for="cv_file">Upload your CV:</label>
+    <input type="file" name="cv_file" id="cv_file" required>
+    <button type="submit">Upload</button>
+    <p style="margin-top: 20px;">
+    <a href="{{ url_for('auth.login') }}" class="btn btn-secondary">Skip Upload and Continue</a>
+</p>
+</form>
+{% endblock %}

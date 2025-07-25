@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Review & Edit Cover Letter</h2>
+
+    {% if cover_letters %}
+        {% set current = cover_letters[0] %}
+        <form method="POST" action="{{ url_for('dashboard.submit_cover_letter') }}">
+            <div style="margin-bottom: 25px; border: 1px solid #ccc; padding: 15px;">
+                <h4>{{ current.job.job_title }} at {{ current.job.company }}</h4>
+                <p><strong>Application Link:</strong> <a href="{{ current.job.apply_link }}" target="_blank">{{ current.job.apply_link }}</a></p>
+
+                <label for="cover_letter">Generated Cover Letter:</label><br>
+                <textarea name="cover_letter" rows="20" style="width: 100%; font-family: monospace;">{{ current.letter }}</textarea>
+            </div>
+            <button type="submit">Submit & Apply</button>
+        </form>
+    {% else %}
+        <p>No cover letters to review.</p>
+    {% endif %}
+</div>
+{% endblock %}

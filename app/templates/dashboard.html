@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+{% block content %}
+    <div class="container">
+        <div style="text-align: right; margin-bottom: 10px;">
+        <a href="{{ url_for('profile.profile_page') }}" style="margin-right: 20px; text-decoration: none; color: #007BFF;">View Profile</a>
+        <a href="{{ url_for('auth.logout') }}" style="text-decoration: none; color: #007BFF;">Logout</a>
+    </div>
+    <h2>Welcome, {{ username }}</h2>
+
+    <!-- 🔍 Keyword-Based Job Search -->
+    <form method="POST" action="{{ url_for('dashboard.keyword_search_jobs') }}">
+        <label>Search Jobs by Keyword:</label>
+        <input type="text" name="keyword" placeholder="e.g. Python Developer">
+
+        <label for="location">Location:</label>
+        <input type="text" id="location" name="location" placeholder="Start typing city..." autocomplete="off">
+        <div id="city-suggestions" style="border: 1px solid #ccc; max-height: 150px; overflow-y: auto;"></div>
+
+        <label>Job Type:</label>
+        <select name="job_type">
+            <option value="">--Select--</option>
+            <option value="full time">Full Time</option>
+            <option value="part time">Part Time</option>
+            <option value="remote">Remote</option>
+            <option value="work from home">Work From Home</option>
+        </select>
+
+        <label>Sort By:</label>
+        <select name="sort_by">
+            <option value="relevant">Most Relevant</option>
+            <option value="24hr">New Listings (24hrs)</option>
+            <option value="7days">New Listings (7 days)</option>
+        </select>
+
+        <button type="submit">Search</button>
+    </form>
+
+    <!-- 📄 CV-Based Job Search -->
+    <form method="POST" action="{{ url_for('dashboard.cv_search_jobs') }}" style="margin-top: 20px;">
+        <button type="submit">Search Jobs by Scanned CV</button>
+    </form>
+
+    <!-- 📋 Job Listings -->
+    {% if jobs %}
+    <form method="POST" action="{{ url_for('dashboard.prepare_cover_letter') }}">
+    <div class="results" style="margin-top: 30px;">
+        <h3>Fetched Job Listings ({{ jobs|length }} found):</h3>
+
+        <ul>
+            {% for job in jobs %}
+            <li style="margin-bottom: 25px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                <div style="display: flex; align-items: flex-start; max-width: 800px;">
+                    <div style="flex-shrink: 0;">
+                        <input type="checkbox" name="selected_jobs" value="{{ loop.index0 }}" style="margin-right: 10px; margin-top: 5px;">
+                    </div>
+                    <div style="flex-grow: 1;">
+                        <strong>{{ job.job_title }}</strong> at {{ job.employer_name }}<br>
+                        Location: {{ job.job_city }}, {{ job.job_country }}<br>
+                        <a href="{{ job.job_apply_link }}" target="_blank">View Job</a>
+                    </div>
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+
+        <button type="submit">Apply Selected Jobs</button>
+    </div>
+</form>
+    {% endif %}
+
+    <!-- Pagination -->
+    {% if page %}
+    <div style="margin-top: 20px;">
+        {% if page > 1 %}
+            {% if 'keyword' in session %}
+                <a href="{{ url_for('dashboard.keyword_search_jobs', page=page-1) }}">Previous</a>
+            {% else %}
+                <a href="{{ url_for('dashboard.cv_search_jobs', page=page-1) }}">Previous</a>
+            {% endif %}
+        {% endif %}
+
+        <span>Page {{ page }}</span>
+
+        {% if has_next %}
+            {% if 'keyword' in session %}
+                <a href="{{ url_for('dashboard.keyword_search_jobs', page=page+1) }}">Next</a>
+            {% else %}
+                <a href="{{ url_for('dashboard.cv_search_jobs', page=page+1) }}">Next</a>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endif %}
+
+    <hr>
+    <div id="chatbot" style="margin-top: 40px;">
+    <h3>🤖 Help Chatbot</h3>
+    <form id="chat-form">
+        <textarea name="message" id="chat-input" rows="3" style="width: 100%;" placeholder="Ask me anything..."></textarea>
+        <button type="submit" style="margin-top: 10px;">Send</button>
+    </form>
+    <div id="chat-response" style="margin-top: 20px; border: 1px solid #ddd; padding: 10px;"></div>
+</div>
+
+<script>
+document.getElementById('chat-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const input = document.getElementById('chat-input').value;
+
+    const res = await fetch("/chatbot", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({ message: input })
+    });
+
+    const data = await res.json();
+    document.getElementById('chat-response').innerText = data.response;
+});
+</script>
+{% endblock %}

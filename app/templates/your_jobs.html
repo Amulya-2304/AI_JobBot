@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <h2>Your Applied Jobs & Status</h2>
+    {% if jobs %}
+        <ul>
+        {% for job in jobs %}
+            <li>
+                <strong>{{ job.job_title }}</strong> at {{ job.company }} <br>
+                Status: {{ job.status }} <br>
+                <a href="{{ job.apply_link }}" target="_blank">Job Link</a>
+            </li>
+        {% endfor %}
+        </ul>
+    {% else %}
+        <p>You haven't applied to any jobs yet.</p>
+    {% endif %}
+    <br>
+    <a href="{{ url_for('dashboard.dashboard_home') }}">⬅ Back to Dashboard</a>
+</div>
+{% endblock %}

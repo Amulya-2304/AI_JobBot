@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+
+    <div style="text-align: right;">
+        <a href="{{ url_for('dashboard.dashboard_home') }}" style="text-decoration: none; color: #007BFF;">← Back to Dashboard</a>
+    </div>
+
+    <h2>Your Profile</h2>
+
+    <p><strong>Username:</strong> {{ user.username }}</p>
+    <p><strong>Email:</strong> {{ user.email }}</p>
+    <p><strong>Password:</strong> ********** <a href="{{ url_for('auth.forgot_password') }}">Reset</a></p>
+
+    {% if user.cv_filename %}
+        <p><strong>Uploaded CV:</strong>
+            <a href="{{ url_for('static', filename='uploads/' + user.cv_filename) }}" target="_blank">
+                {{ user.cv_filename }}
+            </a>
+        </p>
+        <form action="{{ url_for('profile.delete_cv') }}" method="POST" style="margin-bottom: 15px;">
+            <button type="submit">Delete CV</button>
+        </form>
+    {% else %}
+        <p><strong>Uploaded CV:</strong> No CV uploaded.</p>
+    {% endif %}
+
+    <form action="{{ url_for('profile.upload_new_cv') }}" method="POST" enctype="multipart/form-data">
+        <label><strong>Upload New CV:</strong></label>
+        <input type="file" name="cv_file" required>
+        <button type="submit">Upload</button>
+    </form>
+
+    <br><br>
+    <h3>📄 Your Jobs & Application Status</h3>
+    {% if applied_jobs %}
+        <ul>
+            {% for job in applied_jobs %}
+                <li>
+                    <strong>{{ job.job_title }}</strong> at {{ job.company }}<br>
+                    Status: {{ job.status }}<br>
+                    <a href="{{ job.apply_link }}" target="_blank">View Job</a>
+                </li>
+            {% endfor %}
+        </ul>
+    {% else %}
+        <p>No jobs applied yet.</p>
+    {% endif %}
+</div>
+{% endblock %}
