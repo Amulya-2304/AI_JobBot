@@ -15,6 +15,8 @@ def extract_keywords_from_cv(cv_path):
     elif cv_path.endswith('.docx'):
         text = docx2txt.process(cv_path)
 
+    # Keep original text for address extraction (case-sensitive)
+    original_text = text
     text = text.lower()
 
     # ✅ Whitelist for keyword extraction
@@ -45,7 +47,7 @@ def extract_keywords_from_cv(cv_path):
     print("📍 Extracted Location from CV:", location)
 
     # 👤 Extract personal details
-    name_match = re.search(r'name[:\-]?\s*([A-Za-z ]+)', text)
+    name_match = re.search(r'name[:\-\s]*([A-Za-z ]+)', text)
     email_match = re.search(r'[\w\.-]+@[\w\.-]+', text)
     phone_match = re.search(r'\+?\d[\d\s\-\(\)]{7,}', text)
 
@@ -53,10 +55,27 @@ def extract_keywords_from_cv(cv_path):
     user_email = email_match.group(0) if email_match else ""
     user_phone = phone_match.group(0) if phone_match else ""
 
+    # 🏠 Extract address (look for lines starting with 'address' or typical address patterns)
+    address_match = re.search(r'(address[:\-\s]*)([A-Za-z0-9,\.\-\s]+)', original_text, re.IGNORECASE)
+    user_address = address_match.group(2).strip() if address_match else ""
+    # Fallback: look for a line with numbers and street/road/ave
+    if not user_address:
+        address_fallback = re.search(r'([0-9]{1,5} [A-Za-z0-9 ,\.-]+(Street|St\.|Road|Rd\.|Avenue|Ave\.|Lane|Ln\.|Blvd|Boulevard|Drive|Dr\.|Block|Sector)[A-Za-z0-9 ,\.-]*)', original_text, re.IGNORECASE)
+        user_address = address_fallback.group(0).strip() if address_fallback else ""
+
+    # 🔗 Extract GitHub and LinkedIn links
+    github_match = re.search(r'(https?://)?(www\.)?github\.com/[A-Za-z0-9_-]+', original_text, re.IGNORECASE)
+    linkedin_match = re.search(r'(https?://)?(www\.)?linkedin\.com/in/[A-Za-z0-9_-]+', original_text, re.IGNORECASE)
+    github_url = github_match.group(0) if github_match else ""
+    linkedin_url = linkedin_match.group(0) if linkedin_match else ""
+
     return {
         "keywords": keywords or ["job", "assistant"],
         "location": location,
         "user_name": user_name,
         "email": user_email,
-        "phone": user_phone
+        "phone": user_phone,
+        "address": user_address,
+        "github": github_url,
+        "linkedin": linkedin_url
     }

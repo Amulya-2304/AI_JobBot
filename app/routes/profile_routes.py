@@ -20,6 +20,35 @@ def profile_page():
 
     return render_template("profile.html", user=user, applied_jobs=applied_jobs)
 
+@profile.route('/edit-profile', methods=['GET', 'POST'])
+def edit_profile():
+    if 'user_id' not in session:
+        flash("Please log in to edit your profile.", "warning")
+        return redirect(url_for('auth.login'))
+
+    user = User.query.get(session['user_id'])
+
+    if request.method == 'POST':
+        username = request.form.get('username')
+        email = request.form.get('email')
+        new_password = request.form.get('new_password')
+
+        # Update username and email
+        if username:
+            user.username = username
+        if email:
+            user.email = email
+
+        # Update password if provided
+        if new_password and new_password.strip() != "":
+            from werkzeug.security import generate_password_hash
+            user.password = generate_password_hash(new_password)
+
+        db.session.commit()
+        flash("Profile updated successfully!", "success")
+        return redirect(url_for('profile.profile_page'))
+
+    return render_template("edit_profile.html", user=user)
 
 @profile.route('/upload-new-cv', methods=['POST'])
 def upload_new_cv():

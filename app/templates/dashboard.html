@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 {% block content %}
-    <div class="container">
-        <div style="text-align: right; margin-bottom: 10px;">
+<div class="container">
+    <!-- Top Menu -->
+    <div style="text-align: right; margin-bottom: 10px;">
         <a href="{{ url_for('profile.profile_page') }}" style="margin-right: 20px; text-decoration: none; color: #007BFF;">View Profile</a>
         <a href="{{ url_for('auth.logout') }}" style="text-decoration: none; color: #007BFF;">Logout</a>
     </div>
+
     <h2>Welcome, {{ username }}</h2>
 
     <!-- 🔍 Keyword-Based Job Search -->
@@ -43,29 +45,28 @@
     <!-- 📋 Job Listings -->
     {% if jobs %}
     <form method="POST" action="{{ url_for('dashboard.prepare_cover_letter') }}">
-    <div class="results" style="margin-top: 30px;">
-        <h3>Fetched Job Listings ({{ jobs|length }} found):</h3>
-
-        <ul>
-            {% for job in jobs %}
-            <li style="margin-bottom: 25px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                <div style="display: flex; align-items: flex-start; max-width: 800px;">
-                    <div style="flex-shrink: 0;">
-                        <input type="checkbox" name="selected_jobs" value="{{ loop.index0 }}" style="margin-right: 10px; margin-top: 5px;">
-                    </div>
-                    <div style="flex-grow: 1;">
+        <div class="results" style="margin-top: 30px;">
+            <h3>Fetched Job Listings ({{ jobs|length }} found):</h3>
+            <ul>
+                {% for job in jobs %}
+                <li style="margin-bottom: 25px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+                    <div>
+                        <input type="checkbox" name="selected_jobs" value="{{ loop.index0 }}" style="margin-right: 10px;">
                         <strong>{{ job.job_title }}</strong> at {{ job.employer_name }}<br>
-                        Location: {{ job.job_city }}, {{ job.job_country }}<br>
-                        <a href="{{ job.job_apply_link }}" target="_blank">View Job</a>
+                        <small>
+                            Location: {{ job.job_city }}, {{ job.job_country }} |
+                            Type: {{ job.job_type }} |
+                            Posted: {{ job.posted_date }}
+                        </small><br>
+                        <a href="{{ url_for('dashboard.view_job', index=loop.index0) }}">View Job Details</a> |
+                        <a href="{{ job.job_url }}" target="_blank">View Full Job Description</a>
                     </div>
-                </div>
-            </li>
-            {% endfor %}
-        </ul>
-
-        <button type="submit">Apply Selected Jobs</button>
-    </div>
-</form>
+                </li>
+                {% endfor %}
+            </ul>
+            <button type="submit">Apply Selected Jobs</button>
+        </div>
+    </form>
     {% endif %}
 
     <!-- Pagination -->
@@ -89,33 +90,70 @@
             {% endif %}
         {% endif %}
     </div>
-{% endif %}
+    {% endif %}
 
-    <hr>
-    <div id="chatbot" style="margin-top: 40px;">
-    <h3>🤖 Help Chatbot</h3>
-    <form id="chat-form">
-        <textarea name="message" id="chat-input" rows="3" style="width: 100%;" placeholder="Ask me anything..."></textarea>
-        <button type="submit" style="margin-top: 10px;">Send</button>
-    </form>
-    <div id="chat-response" style="margin-top: 20px; border: 1px solid #ddd; padding: 10px;"></div>
+    <!-- 🤖 Chatbot -->
+    <div id="chatbot" style="margin-top: 40px; max-width: 500px;">
+        <h3>🤖 Help Chatbot</h3>
+        <div id="chat-messages" style="border: 1px solid #ddd; padding: 10px; height: 250px; overflow-y: auto; background: #f9f9f9; margin-bottom: 10px;"></div>
+        <form id="chat-form" method="POST" class="d-flex gap-2">
+            <input type="text" id="chat-input" name="message" class="form-control" placeholder="Ask me anything about the app..." required>
+            <button type="submit" class="btn btn-primary">Send</button>
+        </form>
+    </div>
 </div>
 
 <script>
-document.getElementById('chat-form').addEventListener('submit', async function (e) {
+document.getElementById('location').addEventListener('input', async function() {
+    const query = this.value.trim();
+    const suggestionBox = document.getElementById('city-suggestions');
+    suggestionBox.innerHTML = '';
+
+    if (query.length > 2) {
+        try {
+            const response = await fetch(`/resolve-cities?namePrefix=${query}`);
+            const data = await response.json();
+            data.forEach(city => {
+                const option = document.createElement('div');
+                option.textContent = `${city.city}, ${city.country}`;
+                option.style.cursor = "pointer";
+                option.onclick = function() {
+                    document.getElementById('location').value = `${city.city}, ${city.country}`;
+                    suggestionBox.innerHTML = '';
+                };
+                suggestionBox.appendChild(option);
+            });
+        } catch (error) {
+            console.error("Error fetching city suggestions:", error);
+        }
+    }
+});
+</script>
+
+<script>
+document.getElementById('chat-form').addEventListener('submit', async function(e) {
     e.preventDefault();
-    const input = document.getElementById('chat-input').value;
+    const inputField = document.getElementById('chat-input');
+    const userMessage = inputField.value.trim();
+    if (!userMessage) return;
+
+    const chatBox = document.getElementById('chat-messages');
+    chatBox.innerHTML += `<div><strong>You:</strong> ${userMessage}</div>`;
+
+    inputField.value = "";
 
     const res = await fetch("/chatbot", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        body: new URLSearchParams({ message: input })
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `message=${encodeURIComponent(userMessage)}`
     });
 
     const data = await res.json();
-    document.getElementById('chat-response').innerText = data.response;
+
+    setTimeout(() => {
+        chatBox.innerHTML += `<div style="color: blue;"><strong>Bot:</strong> ${data.response}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }, 600);
 });
 </script>
 {% endblock %}

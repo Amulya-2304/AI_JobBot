@@ -32,6 +32,14 @@ AI JobBot Team
     mail.send(msg)
 
 
+from flask import send_from_directory
+import os
+
+@auth.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(os.path.join(os.getcwd(), 'app/static/uploads'), filename)
+
+
 @auth.route('/')
 def home():
     """Landing page - Welcome screen"""
@@ -83,19 +91,31 @@ def register():
 @auth.route('/upload-cv', methods=['GET', 'POST'])
 def upload_cv():
     """CV upload page"""
+    if 'user_id' not in session:
+        flash("Please log in to upload a CV.", "warning")
+        return redirect(url_for('auth.login'))
+
     if request.method == 'POST':
         file = request.files['cv_file']
         if file and file.filename:
-            filename = secure_filename(file.filename)
-            filepath = os.path.join('app/static/uploads', filename)
+
+            # Get user info for a unique filename
+            user = User.query.get(session['user_id'])
+            username = user.username.replace(" ", "_")
+
+            # Always save as: username_cv.pdf (avoids special char issues)
+            filename = f"{username}_cv.pdf"
+            filepath = os.path.join('app', 'static', 'uploads', filename)
             file.save(filepath)
 
-            user = User.query.get(session['user_id'])
+            # Save filename in DB
             user.cv_filename = filename
             db.session.commit()
 
-            flash("CV uploaded successfully.", "success")
-        return redirect(url_for('auth.login'))
+            flash("✅ CV uploaded successfully.", "success")
+            return redirect(url_for('auth.login'))
+
+        flash("⚠️ Please select a file to upload.", "warning")
 
     return render_template('upload_cv.html')
 
@@ -107,12 +127,16 @@ def skip_cv():
     return redirect(url_for('auth.login'))
 
 
+from itsdangerous import URLSafeTimedSerializer
+from flask import current_app
+
 @auth.route('/forgot-password', methods=['GET', 'POST'])
 def forgot_password():
     if request.method == 'POST':
         email = request.form.get('email')
         user = User.query.filter_by(email=email).first()
         if user:
+            serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
             token = serializer.dumps(email, salt='reset-password')
             link = url_for('auth.reset_password', token=token, _external=True)
             send_reset_email(email, link)
@@ -124,6 +148,7 @@ def forgot_password():
 
 @auth.route('/reset-password/<token>', methods=['GET', 'POST'])
 def reset_password(token):
+    serializer = URLSafeTimedSerializer(current_app.config['SECRET_KEY'])
     try:
         email = serializer.loads(token, salt='reset-password', max_age=3600)
     except:
@@ -134,12 +159,12 @@ def reset_password(token):
         new_password = request.form.get('password')
         user = User.query.filter_by(email=email).first()
         if user:
-            user.set_password(new_password)
+            user.password = generate_password_hash(new_password)
             db.session.commit()
-            flash("Password updated. Please log in.", "success")
+            flash("✅ Password updated. Please log in.", "success")
             return redirect(url_for('auth.login'))
 
-    return render_template('reset_password.html')
+    return render_template('reset_password.html', token=token )
 
 @auth.route('/logout')
 def logout():

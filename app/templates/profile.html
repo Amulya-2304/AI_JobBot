@@ -1,50 +1,48 @@
-{% extends "base.html" %}
+{% extends "layout.html" %}
 {% block content %}
-<div class="container">
-
-    <div style="text-align: right;">
-        <a href="{{ url_for('dashboard.dashboard_home') }}" style="text-decoration: none; color: #007BFF;">← Back to Dashboard</a>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<div class="container py-5">
+    <!-- 🔹 Back to Dashboard Button -->
+    <div class="mb-3 text-end">
+        <a href="{{ url_for('dashboard.dashboard_home') }}" class="btn btn-outline-primary btn-sm">← Back to Dashboard</a>
     </div>
 
-    <h2>Your Profile</h2>
-
-    <p><strong>Username:</strong> {{ user.username }}</p>
-    <p><strong>Email:</strong> {{ user.email }}</p>
-    <p><strong>Password:</strong> ********** <a href="{{ url_for('auth.forgot_password') }}">Reset</a></p>
-
-    {% if user.cv_filename %}
-        <p><strong>Uploaded CV:</strong>
-            <a href="{{ url_for('static', filename='uploads/' + user.cv_filename) }}" target="_blank">
-                {{ user.cv_filename }}
-            </a>
-        </p>
-        <form action="{{ url_for('profile.delete_cv') }}" method="POST" style="margin-bottom: 15px;">
-            <button type="submit">Delete CV</button>
-        </form>
-    {% else %}
-        <p><strong>Uploaded CV:</strong> No CV uploaded.</p>
-    {% endif %}
-
-    <form action="{{ url_for('profile.upload_new_cv') }}" method="POST" enctype="multipart/form-data">
-        <label><strong>Upload New CV:</strong></label>
-        <input type="file" name="cv_file" required>
-        <button type="submit">Upload</button>
-    </form>
-
-    <br><br>
-    <h3>📄 Your Jobs & Application Status</h3>
-    {% if applied_jobs %}
-        <ul>
-            {% for job in applied_jobs %}
-                <li>
-                    <strong>{{ job.job_title }}</strong> at {{ job.company }}<br>
-                    Status: {{ job.status }}<br>
-                    <a href="{{ job.apply_link }}" target="_blank">View Job</a>
-                </li>
-            {% endfor %}
-        </ul>
-    {% else %}
-        <p>No jobs applied yet.</p>
-    {% endif %}
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-body p-4">
+                    <h2 class="card-title mb-3 text-center">Your Profile</h2>
+                    <div class="mb-3">
+                        <strong>Username:</strong> {{ user.username }}<br>
+                        <strong>Email:</strong> {{ user.email }}
+                    </div>
+                    <div class="d-flex flex-wrap gap-2 mb-3">
+                        <a href="{{ url_for('profile.edit_profile') }}" class="btn btn-outline-primary">Edit Profile</a>
+                        <a href="{{ url_for('auth.logout') }}" class="btn btn-outline-danger">Logout</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card shadow-sm border-0">
+                <div class="card-body">
+                    <h4 class="mb-3">Applied Jobs</h4>
+                    {% if applied_jobs %}
+                        <ul class="list-group">
+                        {% for job in applied_jobs %}
+                            <li class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-2">
+                                <div>
+                                    <strong>{{ job.job_title }}</strong> at {{ job.company }}<br>
+                                    <small class="text-muted">Status: {{ job.status }}</small>
+                                </div>
+                                <a href="{{ job.apply_link }}" target="_blank" class="btn btn-link">View Job</a>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="text-muted">You haven't applied to any jobs yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

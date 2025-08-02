@@ -16,6 +16,7 @@ def dashboard_home():
 
 @dashboard.route('/search-by-cv', methods=['POST', 'GET'])
 def cv_search_jobs():
+    """Search jobs using extracted keywords from user's CV."""
     if 'user_id' not in session:
         return redirect(url_for('auth.login'))
 
@@ -34,32 +35,49 @@ def cv_search_jobs():
         flash("Uploaded CV not found. Please upload again.", "danger")
         return redirect(url_for('dashboard.dashboard_home'))
 
+    # Extract keywords and location
     result = extract_keywords_from_cv(cv_path)
-    keywords = result["keywords"]
-    location = resolve_location(result["location"].lower())
+    keywords = result.get("keywords", [])
+    location = resolve_location(result.get("location", "").lower())
 
     if not keywords:
         flash("No useful keywords found in your CV. Try uploading a different file.", "warning")
         return redirect(url_for('dashboard.dashboard_home'))
 
-    search_query = " ".join(keywords[:5])
+    search_query = " ".join(keywords[:5])  # combine top 5 keywords
+
+    # Pagination
     page = request.args.get('page', 1, type=int)
     jobs = fetch_jobs(keyword=search_query, location=location, job_type="", sort_by="relevant", page=page)
 
+    # Save for reuse
+    session['cv_search_query'] = search_query
+    session['cv_search_location'] = location
     session['job_results'] = jobs
     session.modified = True
-    print("✅ Saved job_results to session:", len(jobs))
 
-    return render_template('dashboard.html', username=session.get('username'), jobs=jobs,
-                           total_count=len(jobs) * 3, page=page, has_next=len(jobs) == 10)
+    print(f"📡 CV Search: '{search_query}' in {location} -> {len(jobs)} jobs fetched (Page {page})")
+
+    # Calculate pagination dynamically
+    total_jobs = 50 if len(jobs) == 10 else len(jobs)
+    has_next = len(jobs) == 10
+
+    return render_template('dashboard.html',
+                           username=session.get('username'),
+                           jobs=jobs,
+                           total_count=total_jobs,
+                           page=page,
+                           has_next=has_next)
+
 
 @dashboard.route('/search-jobs', methods=['POST', 'GET'])
 def keyword_search_jobs():
+    """Search jobs based on user-entered keyword and location."""
     if request.method == 'POST':
-        session['keyword'] = request.form.get('keyword', '')
-        session['location'] = request.form.get('location', '')
-        session['job_type'] = request.form.get('job_type', '')
-        session['sort_by'] = request.form.get('sort_by', '')
+        session['keyword'] = request.form.get('keyword', '').strip()
+        session['location'] = request.form.get('location', '').strip()
+        session['job_type'] = request.form.get('job_type', '').strip()
+        session['sort_by'] = request.form.get('sort_by', '').strip()
         page = 1
     else:
         page = request.args.get('page', 1, type=int)
@@ -72,12 +90,23 @@ def keyword_search_jobs():
     from app.utils.job_fetcher import fetch_jobs
     jobs = fetch_jobs(keyword=keyword, location=location, job_type=job_type, sort_by=sort_by, page=page)
 
+    # Save results in session
     session['job_results'] = jobs
     session.modified = True
-    print("✅ Saved job_results to session:", len(jobs))
 
-    return render_template('dashboard.html', username=session.get('username'), jobs=jobs,
-                           total_count=len(jobs) * 3, page=page, has_next=len(jobs) == 10)
+    print(f"📡 Keyword Search: '{keyword}' in {location} -> {len(jobs)} jobs fetched (Page {page})")
+
+    # Dynamic total count for pagination
+    total_jobs = 50 if len(jobs) == 10 else len(jobs)
+    has_next = len(jobs) == 10
+
+    return render_template('dashboard.html',
+                           username=session.get('username'),
+                           jobs=jobs,
+                           total_count=total_jobs,
+                           page=page,
+                           has_next=has_next)
+
 
 @dashboard.route('/apply-job', methods=['POST'])
 def apply_job():
@@ -240,30 +269,39 @@ def submit_cover_letter():
 
 # chatbot and resolve_cities remain unchanged
 
-@dashboard.route('/chatbot', methods=['GET', 'POST'])
+@dashboard.route('/chatbot', methods=['POST'])
 def chatbot():
     from openai import OpenAI
     import os
 
     client = OpenAI(api_key=os.getenv("OpenAI_API_KEY"))
 
-    if request.method == 'GET':
-        return {"response": "Hello! Welcome to the helpdesk. How can I assist you?"}
+    user_message = request.form.get('message', '').strip()
 
-    user_message = request.form.get('message', '')
+    # ✅ Reject confidential questions politely
+    restricted_keywords = ["password", "secret key", "database", "admin panel", "api key"]
+    if any(word in user_message.lower() for word in restricted_keywords):
+        return {"response": "I’m sorry, but I can’t help with confidential or sensitive information."}
 
-    if not user_message:
-        return {"response": "Please enter a message."}
+    # ✅ Context about your app features
+    system_prompt = """
+    You are the AI Help Assistant for AI JobBot. 
+    Only answer questions about this application and its features. 
+    If the user says hello or hi, greet them politely.
+    If the user asks anything unrelated to this app or outside the supported features, reply:
+    'I’m here to help only with AI JobBot features such as registration, login, uploading CV, 
+    searching jobs, applying jobs, generating cover letters, viewing applied jobs, and profile management.'
+    """
 
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a helpful assistant for a job application platform."},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_message}
             ]
         )
-        reply = response.choices[0].message.content
+        reply = response.choices[0].message.content.strip()
         return {"response": reply}
     except Exception as e:
         print("Chatbot error:", str(e))
@@ -285,7 +323,7 @@ def resolve_cities():
     }
     params = {
         "namePrefix": name_prefix,
-        "limit": "5",
+        "limit": "10",
         "types": "CITY"
     }
 
@@ -300,3 +338,70 @@ def resolve_cities():
         print("GeoDB error:", e)
         return []
 
+@dashboard.route('/regenerate-cover-letter', methods=['POST'])
+def regenerate_cover_letter():
+    from openai import OpenAI
+    import os
+
+    feedback = request.form.get("feedback", "")
+    future_pref = request.form.get("future", "false") == "true"
+
+    job_list = session.get('jobs_to_apply', [])
+    index = session.get('current_job_index', 0)
+    if index >= len(job_list):
+        return {"new_letter": "No job found to regenerate."}
+
+    job = job_list[index]
+    user_id = session.get('user_id')
+    from app.models.user import User
+    user = User.query.get(user_id)
+
+    client = OpenAI(api_key=os.getenv("OpenAI_API_KEY"))
+
+    prompt = f"""
+    Regenerate the following cover letter for the role {job['job_title']} at {job['company']} 
+    with the following user-requested changes: {feedback}.
+    Keep it professional and concise.
+    """
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    new_letter = response.choices[0].message.content
+
+    # Save future preference
+    if future_pref:
+        session["future_feedback"] = feedback
+
+    return {"new_letter": new_letter}
+
+@dashboard.route('/enhance-cover-letter', methods=['POST'])
+def enhance_cover_letter():
+    from openai import OpenAI
+    import os
+
+    text = request.form.get("text", "")
+    client = OpenAI(api_key=os.getenv("OpenAI_API_KEY"))
+
+    prompt = f"Improve the following text to make it sound more professional and polished:\n\n{text}"
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    enhanced_text = response.choices[0].message.content
+
+    return {"enhanced_text": enhanced_text}
+
+
+@dashboard.route('/view-job/<int:index>')
+def view_job(index):
+    """View details of a specific job from session results."""
+    jobs = session.get('job_results', [])
+    if 0 <= index < len(jobs):
+        job = jobs[index]
+        return render_template('view_job.html', job=job)
+    else:
+        flash("Job not found", "warning")
+        return redirect(url_for('dashboard.dashboard_home'))

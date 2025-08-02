@@ -28,4 +28,4 @@ def resolve_location(city_input):
     except Exception as e:
         print("🌍 Location resolver error:", e)
 
-    return city_input  # fallback to original
+    return city_input

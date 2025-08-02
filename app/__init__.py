@@ -10,9 +10,16 @@ from app.db import db
 mail = Mail()
 load_dotenv()
 
+from flask_login import current_user
+
+
 
 def create_app():
     app = Flask(__name__)
+
+    @app.context_processor
+    def inject_user():
+        return dict(current_user=current_user)
 
     # 🔐 Secret key
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
